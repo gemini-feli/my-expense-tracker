@@ -13,21 +13,22 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Prepare Blue Environment (if not exists)
+      - name: Prepare Stable Environment
         run: |
-          if [ ! -d "blue" ]; then
-            echo "No Blue environment found. Creating initial stable version..."
-            mkdir -p blue
-            cp -r $(ls -A | grep -v blue | grep -v green) blue/
+          # Create stable folder in repo if not exists
+          if [ ! -d "stable" ]; then
+            echo "No stable environment found. Creating initial stable version..."
+            mkdir -p stable
+            cp -r $(ls -A | grep -v stable | grep -v green) stable/
           fi
-          echo "✅ Blue environment ready."
+          echo "✅ Stable environment ready (contains working db.php with \$conn)."
 
       - name: Simulate Deploy to Green
         run: |
           echo "Deploying current code to Green environment..."
           rm -rf green/
           mkdir -p green/
-          cp -r $(ls -A | grep -v blue | grep -v green) green/
+          cp -r $(ls -A | grep -v stable | grep -v green) green/
           echo "✅ Green environment ready."
 
       - name: Run Automated Test
@@ -35,26 +36,26 @@ jobs:
           echo "Testing Green environment..."
           # Fail test if mysqli_connect is missing in db.php
           if grep -q "mysqli_connect" green/db.php; then
-            echo "✅ Test passed. Switching traffic to Green."
-            rm -rf blue/
-            mv green/ blue/
+            echo "✅ Test passed. Updating stable environment."
+            rm -rf stable/
+            mv green/ stable/
           else
-            echo "❌ Test failed. Rolling back to previous Blue version..."
+            echo "❌ Test failed. Rolling back to previous stable version..."
             rm -rf green/
-            echo "🔁 Rollback triggered successfully — old stable version restored"
+            echo "🔁 Rollback triggered successfully — stable version preserved"
             echo "🔹 Contents of stable db.php after rollback:"
-            cat blue/db.php || echo "No stable db.php found"
+            cat stable/db.php || echo "No stable db.php found"
             echo "🔹 Files in stable environment:"
-            ls -R blue/
+            ls -R stable/
             exit 1
           fi
 
       - name: Show Deployment Result
         run: |
-          if [ -d "blue" ]; then
-            echo "✔ Active environment: Blue (Stable)"
+          if [ -d "stable" ]; then
+            echo "✔ Active environment: Stable"
             echo "🔹 Files in stable environment:"
-            ls -R blue/
+            ls -R stable/
           else
             echo "❌ Deployment failed, no stable environment."
           fi
