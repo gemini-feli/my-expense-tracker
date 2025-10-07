@@ -16,8 +16,9 @@ jobs:
       - name: Simulate Deploy to Green
         run: |
           echo "Deploying current code to Green environment..."
+          rm -rf green/        # ✅ clean previous green environment
           mkdir -p green/
-          cp -r * green/
+          cp -r $(ls -A | grep -v green | grep -v blue) green/
           echo "✅ Green environment ready."
 
       - name: Run Automated Test
@@ -28,11 +29,8 @@ jobs:
             rm -rf blue/
             mv green/ blue/
           else
-            echo "❌ Test failed due to missing database connection in db.php"
-            echo "🔁 Rolling back to previous Blue version..."
+            echo "❌ Test failed. Rolling back to previous Blue version..."
             rm -rf green/
-            exit 1
-
             exit 1
           fi
 
