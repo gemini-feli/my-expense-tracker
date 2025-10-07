@@ -9,10 +9,10 @@ $password = "";
 $charset = 'utf8mb4';
 
 // MySQLi connection (used for CI/CD test)
-$conn = mysqli_connect($host, $username, $password, $dbname, $port);
-if (!$conn) {
-    die("MySQLi Connection failed: " . mysqli_connect_error());
-}
+//$conn = mysqli_connect($host, $username, $password, $dbname, $port);
+//if (!$conn) {
+ //   die("MySQLi Connection failed: " . mysqli_connect_error());
+//}
 
 // PDO connection
 $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=$charset";
