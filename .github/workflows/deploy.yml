@@ -1,4 +1,4 @@
-name: Deploy PHP App (Blue-Green)
+name: Simulate Blue-Green Deployment
 
 on:
   push:
@@ -10,31 +10,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup SSH Key
+      - name: Simulate Deploy to Green
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
+          echo "Deploying current code to Green environment..."
+          mkdir -p green/
+          cp -r * green/
+          echo "✅ Green environment ready."
 
-      - name: Deploy to Green environment
-        run: |
-          echo "Deploying to Green environment..."
-          rsync -avz --delete -e "ssh -i private_key.pem -o StrictHostKeyChecking=no" ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/var/www/green/
-
-      - name: Test Green Deployment
+      - name: Run Automated Test
         run: |
           echo "Testing Green environment..."
-          ssh -i private_key.pem -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -s -o /dev/null -w '%{http_code}' http://localhost:8082/testdb.php" > status.txt
-          cat status.txt
-          STATUS=$(cat status.txt)
-          if [ "$STATUS" = "200" ]; then
+          if grep -q "mysqli_connect" db.php; then
             echo "✅ Test passed. Switching traffic to Green."
-            ssh -i private_key.pem -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo ln -sf /etc/apache2/sites-available/green.conf /etc/apache2/sites-enabled/000-default.conf && sudo systemctl reload apache2"
+            rm -rf blue/
+            mv green/ blue/
           else
-            echo "❌ Test failed. Rollback to Blue."
-            ssh -i private_key.pem -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "sudo ln -sf /etc/apache2/sites-available/blue.conf /etc/apache2/sites-enabled/000-default.conf && sudo systemctl reload apache2"
+            echo "❌ Test failed due to missing database connection in db.php"
+            echo "🔁 Rolling back to previous Blue version..."
+            rm -rf green/
+            exit 1
+
             exit 1
           fi
 
+      - name: Show Deployment Result
+        run: |
+          if [ -d "blue" ]; then
+            echo "✔ Active environment: Blue (Stable)"
+          else
+            echo "❌ Deployment failed, no stable version."
+          fi
