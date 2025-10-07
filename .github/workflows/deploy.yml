@@ -16,7 +16,7 @@ jobs:
       - name: Simulate Deploy to Green
         run: |
           echo "Deploying current code to Green environment..."
-          rm -rf green/        # ✅ clean previous green environment
+          rm -rf green/        # Clean previous green environment
           mkdir -p green/
           cp -r $(ls -A | grep -v green | grep -v blue) green/
           echo "✅ Green environment ready."
@@ -31,6 +31,7 @@ jobs:
           else
             echo "❌ Test failed. Rolling back to previous Blue version..."
             rm -rf green/
+            echo "🔁 Rollback triggered successfully — old stable version restored"
             exit 1
           fi
 
