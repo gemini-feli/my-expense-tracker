@@ -9,7 +9,7 @@ $password = "";
 $charset = 'utf8mb4';
 
 
-
+$conn = mysqli_connect($host, $username, $password, $dbname, $port);
 // PDO connection
 $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=$charset";
 $options = [
