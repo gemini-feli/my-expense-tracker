@@ -32,6 +32,8 @@ jobs:
             echo "❌ Test failed. Rolling back to previous Blue version..."
             rm -rf green/
             echo "🔁 Rollback triggered successfully — old stable version restored"
+            echo "🔹 Contents of stable db.php:"
+            cat blue/db.php || echo "No stable db.php found"
             exit 1
           fi
 
@@ -39,6 +41,8 @@ jobs:
         run: |
           if [ -d "blue" ]; then
             echo "✔ Active environment: Blue (Stable)"
+            echo "🔹 Files in stable version:"
+            ls -R blue/
           else
             echo "❌ Deployment failed, no stable version."
           fi
