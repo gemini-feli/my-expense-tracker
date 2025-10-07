@@ -10,49 +10,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # Step 1: Checkout the repository
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Show repo root (debug)
+      # Step 2: Prepare stable (Blue) environment
+      - name: Prepare Blue (Stable) Environment
         run: |
-          echo "Files at repo root:"
-          ls -la
-
-      - name: Prepare Blue (stable) environment
-        run: |
-          # If blue/db.php is missing on runner, create initial blue from current commit.
-          if [ -f blue/db.php ]; then
-            echo "✅ blue/db.php already exists in repository — using committed Blue as stable."
-          else
-            echo "No committed blue/db.php found in runner. Creating initial Blue from current commit..."
-            rm -rf blue
+          if [ ! -d "blue" ]; then
+            echo "🔹 No blue folder found — initializing stable environment..."
             mkdir -p blue
-            # Copy everything except deployment folders and .git into blue
-            cp -r $(ls -A | grep -v -E '^blue$|^green$|^current$|^\.git$') blue/ || true
-            echo "Initial Blue created. Contents:"
-            ls -R blue || true
+            cp -r $(ls -A | grep -v blue | grep -v green | grep -v current | grep -v .git) blue/
+          else
+            echo "✅ Blue environment already exists — keeping as stable baseline."
           fi
 
-      - name: Deploy current commit to Green
+      # Step 3: Deploy to Green (Test) Environment
+      - name: Deploy to Green
         run: |
-          echo "Deploying current commit to green/ ..."
+          echo "🚀 Deploying current version to Green..."
           rm -rf green
-          mkdir -p green
-          cp -r $(ls -A | grep -v -E '^blue$|^green$|^current$|^\.git$') green/ || true
-          echo "✅ green ready. green contents:"
-          ls -R green || true
+          mkdir green
+          cp -r $(ls -A | grep -v blue | grep -v green | grep -v current | grep -v .git) green/
+          echo "✅ Green environment deployed."
 
-      - name: Test Green deployment and promote or rollback
+      # Step 4: Automated test (simple check for mysqli_connect)
+      - name: Test Green Deployment
         run: |
-          echo "Testing green/db.php for mysqli_connect..."
-          if [ -f green/db.php ] && grep -q "mysqli_connect" green/db.php; then
-            echo "✅ Test passed. Promoting green → blue (update stable)."
+          echo "🔍 Testing green/db.php for mysqli_connect..."
+          if grep -q "mysqli_connect" green/db.php; then
+            echo "✅ Test passed — new version is stable."
             rm -rf blue
             mv green blue
-            echo "🔹 blue updated. New blue contents:"
-            ls -R blue || true
+            echo "🔹 Blue environment updated with new stable version."
           else
             echo "❌ Test failed. Rolling back: removing green and preserving existing blue."
             rm -rf green
@@ -60,22 +50,18 @@ jobs:
             echo "🔹 Attempt to show blue/db.php (if exists):"
             if [ -f blue/db.php ]; then
               echo "---- blue/db.php start ----"
-              sed -n '1,120p' blue/db.php || true
+              cat blue/db.php
               echo "---- blue/db.php end ----"
             else
-              echo "No blue/db.php found."
+              echo "⚠️  blue/db.php missing!"
             fi
-            echo "🔹 Files in blue (if any):"
-            ls -R blue || true
             exit 1
           fi
 
-      - name: Ensure current points to Blue (active)
+      # Step 5: Update current symlink to point to Blue (stable)
+      - name: Update Current Environment
         run: |
-          if [ -L current ] || [ -d current ]; then
-            rm -rf current
-          fi
+          echo "🔄 Updating current/ to point to blue/..."
+          rm -rf current
           ln -s blue current
-          echo "✅ current -> $(readlink current)"
-          echo "🔹 Files served from current (active):"
-          ls -R current || true
+          echo "✅ Current now points to stable (blue)."
