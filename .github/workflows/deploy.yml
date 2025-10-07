@@ -13,21 +13,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Prepare Stable Environment
+      - name: Use Committed Stable Environment
         run: |
-          # Create stable folder in repo if not exists
-          if [ ! -d "stable" ]; then
-            echo "No stable environment found. Creating initial stable version..."
-            mkdir -p stable
-            cp -r $(ls -A | grep -v stable | grep -v green) stable/
-          fi
-          echo "✅ Stable environment ready (contains working db.php with \$conn)."
+          echo "✅ Using committed stable environment for rollback demonstration."
+          ls -R stable/
 
       - name: Simulate Deploy to Green
         run: |
           echo "Deploying current code to Green environment..."
           rm -rf green/
           mkdir -p green/
+          # Copy all files from current commit except stable folder
           cp -r $(ls -A | grep -v stable | grep -v green) green/
           echo "✅ Green environment ready."
 
@@ -43,7 +39,7 @@ jobs:
             echo "❌ Test failed. Rolling back to previous stable version..."
             rm -rf green/
             echo "🔁 Rollback triggered successfully — stable version preserved"
-            echo "🔹 Contents of stable db.php after rollback:"
+            echo "🔹 Contents of stable/db.php after rollback:"
             cat stable/db.php || echo "No stable db.php found"
             echo "🔹 Files in stable environment:"
             ls -R stable/
