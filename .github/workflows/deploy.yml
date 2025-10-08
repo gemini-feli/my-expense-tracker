@@ -34,28 +34,48 @@ jobs:
           cp -r $(ls -A | grep -v blue | grep -v green | grep -v current | grep -v .git) green/
           echo "✅ Green environment deployed."
 
-      # Step 4: Automated test (simple check for mysqli_connect)
+      # Step 4: Run multiple automated tests
       - name: Test Green Deployment
         run: |
-          echo "🔍 Testing green/db.php for mysqli_connect..."
-          if grep -q "mysqli_connect" green/db.php; then
-            echo "✅ Test passed — new version is stable."
+          echo "🔍 Running Green environment checks..."
+
+          # 1️⃣ Check db.php for mysqli_connect
+          if ! grep -q "mysqli_connect" green/db.php; then
+            echo "❌ Missing mysqli_connect in db.php"
+            FAIL=true
+          fi
+
+          # 2️⃣ Check for syntax errors in all PHP files
+          for file in $(find green -name "*.php"); do
+            echo "🧩 Checking syntax in $file..."
+            php -l "$file" > /dev/null 2>&1
+            if [ $? -ne 0 ]; then
+              echo "❌ Syntax error in $file"
+              FAIL=true
+            fi
+          done
+
+          # 3️⃣ Check for missing critical files
+          CRITICAL_FILES=("green/db.php" "green/dashboard.php" "green/add_expense.php" "green/login.php")
+          for f in "${CRITICAL_FILES[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "⚠️ Missing critical file: $f"
+              FAIL=true
+            fi
+          done
+
+          # 4️⃣ Fail if any check failed
+          if [ "$FAIL" = true ]; then
+            echo "❌ One or more tests failed. Rolling back..."
+            rm -rf green
+            echo "🔁 Rollback triggered — blue (stable) preserved."
+            echo "🔹 Stable version db.php contents:"
+            cat blue/db.php || echo "⚠️ Missing db.php in blue."
+            exit 1
+          else
+            echo "✅ All checks passed — promoting Green to Blue..."
             rm -rf blue
             mv green blue
-            echo "🔹 Blue environment updated with new stable version."
-          else
-            echo "❌ Test failed. Rolling back: removing green and preserving existing blue."
-            rm -rf green
-            echo "🔁 Rollback triggered — stable (blue) preserved."
-            echo "🔹 Attempt to show blue/db.php (if exists):"
-            if [ -f blue/db.php ]; then
-              echo "---- blue/db.php start ----"
-              cat blue/db.php
-              echo "---- blue/db.php end ----"
-            else
-              echo "⚠️  blue/db.php missing!"
-            fi
-            exit 1
           fi
 
       # Step 5: Update current symlink to point to Blue (stable)
