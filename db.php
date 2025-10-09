@@ -8,6 +8,10 @@ $username = "root";
 $password = "";
 $charset = 'utf8mb4';
 
+$conn = mysqli_connect($host, $username, $password, $dbname, $port);
+if (!$conn) {
+    die("Connection failed: " . mysqli_connect_error());
+}
 
 // PDO connection
 $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=$charset";
