@@ -11,130 +11,63 @@ runs-on: ubuntu-latest
 
 ```
 steps:
-
-  # Step 1: Checkout Repository
   - name: Checkout Code
     uses: actions/checkout@v4
 
-  # Step 2: Install PHP
   - name: Setup PHP
     uses: shivammathur/setup-php@v2
     with:
       php-version: '8.2'
 
-  # Step 3: Create Blue Environment
   - name: Prepare Blue Environment
     run: |
       if [ ! -d "blue" ]; then
-        echo "🔹 Creating Blue Environment..."
-        mkdir blue
-
-        cp -r \
-          add_expense.php \
-          dashboard.php \
-          db.php \
-          login.php \
-          logout.php \
-          signup.php \
-          testdb.php \
-          list_expenses.php \
-          README.md \
-          blue/ 2>/dev/null || true
+        mkdir -p blue
+        cp -r $(ls -A | grep -v blue | grep -v green | grep -v current | grep -v .git) blue/
       fi
 
-  # Step 4: Deploy to Green
-  - name: Deploy to Green Environment
+  - name: Deploy to Green
     run: |
-      echo "🚀 Deploying to Green..."
-
       rm -rf green
       mkdir green
+      cp -r $(ls -A | grep -v blue | grep -v green | grep -v current | grep -v .git) green/
 
-      cp -r \
-        add_expense.php \
-        dashboard.php \
-        db.php \
-        login.php \
-        logout.php \
-        signup.php \
-        testdb.php \
-        list_expenses.php \
-        README.md \
-        green/ 2>/dev/null || true
-
-      echo "✅ Green Deployment Complete"
-
-  # Step 5: Run Automated Tests
   - name: Test Green Deployment
     run: |
-      echo "🔍 Running Green Environment Checks..."
-
       FAIL=false
 
-      echo "📁 Checking Critical Files..."
+      CRITICAL_FILES=("green/db.php" "green/dashboard.php" "green/add_expense.php" "green/login.php")
 
-      FILES=(
-        "green/db.php"
-        "green/login.php"
-        "green/dashboard.php"
-        "green/add_expense.php"
-      )
-
-      for f in "${FILES[@]}"
-      do
+      for f in "${CRITICAL_FILES[@]}"; do
         if [ ! -f "$f" ]; then
-          echo "❌ Missing file: $f"
+          echo "Missing file: $f"
           FAIL=true
-        else
-          echo "✅ Found: $f"
         fi
       done
 
-      echo "🧩 Running PHP Syntax Checks..."
-
-      for file in $(find green -name "*.php")
-      do
-        echo "Checking $file"
-
-        php -l "$file" > /dev/null
-
+      for file in $(find green -name "*.php"); do
+        php -l "$file" > /dev/null 2>&1
         if [ $? -ne 0 ]; then
-          echo "❌ Syntax Error: $file"
+          echo "Syntax error in $file"
           FAIL=true
         fi
       done
 
       if [ "$FAIL" = true ]; then
-        echo "❌ Tests Failed"
-        echo "🔁 Rolling Back..."
-
         rm -rf green
-
         exit 1
       fi
 
-      echo "✅ All Tests Passed"
-
-  # Step 6: Promote Green to Blue
   - name: Promote Green to Blue
     run: |
-      echo "🚀 Promoting Green to Blue..."
-
       rm -rf blue
       mv green blue
 
-      echo "✅ Blue Updated"
-
-  # Step 7: Update Current Environment
-  - name: Update Current Link
+  - name: Update Current Environment
     run: |
       rm -rf current
-
       ln -s blue current
 
-      echo "✅ Current -> Blue"
-
-  # Step 8: Success Message
   - name: Deployment Complete
     run: |
       echo "🎉 Blue-Green Deployment Successful"
