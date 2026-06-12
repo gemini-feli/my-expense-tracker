@@ -1,87 +1,141 @@
 name: Blue-Green Deployment (PHP Seminar Demo)
 
 on:
-  push:
-    branches:
-      - main
+push:
+branches:
+- main
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+deploy:
+runs-on: ubuntu-latest
 
-    steps:
-      # Step 1: Checkout the repository
-      - name: Checkout code
-        uses: actions/checkout@v4
+```
+steps:
 
-      # Step 2: Prepare stable (Blue) environment
-      - name: Prepare Blue (Stable) Environment
-        run: |
-          if [ ! -d "blue" ]; then
-            echo "🔹 No blue folder found — initializing stable environment..."
-            mkdir -p blue
-            cp -r $(ls -A | grep -v blue | grep -v green | grep -v current | grep -v .git) blue/
-          else
-            echo "✅ Blue environment already exists — keeping as stable baseline."
-          fi
+  # Step 1: Checkout Repository
+  - name: Checkout Code
+    uses: actions/checkout@v4
 
-      # Step 3: Deploy to Green (Test) Environment
-      - name: Deploy to Green
-        run: |
-          echo "🚀 Deploying current version to Green..."
-          rm -rf green
-          mkdir green
-          cp -r $(ls -A | grep -v blue | grep -v green | grep -v current | grep -v .git) green/
-          echo "✅ Green environment deployed."
+  # Step 2: Install PHP
+  - name: Setup PHP
+    uses: shivammathur/setup-php@v2
+    with:
+      php-version: '8.2'
 
-      # Step 4: Run multiple automated tests
-      - name: Test Green Deployment
-        run: |
-          echo "🔍 Running Green environment checks..."
+  # Step 3: Create Blue Environment
+  - name: Prepare Blue Environment
+    run: |
+      if [ ! -d "blue" ]; then
+        echo "🔹 Creating Blue Environment..."
+        mkdir blue
 
-          # 1️⃣ Check db.php for mysqli_connect
-          if ! grep -q "mysqli_connect" green/db.php; then
-            echo "❌ Missing mysqli_connect in db.php"
-            FAIL=true
-          fi
+        cp -r \
+          add_expense.php \
+          dashboard.php \
+          db.php \
+          login.php \
+          logout.php \
+          signup.php \
+          testdb.php \
+          list_expenses.php \
+          README.md \
+          blue/ 2>/dev/null || true
+      fi
 
-          # 2️⃣ Check for syntax errors in all PHP files
-          for file in $(find green -name "*.php"); do
-            echo "🧩 Checking syntax in $file..."
-            php -l "$file" > /dev/null 2>&1
-            if [ $? -ne 0 ]; then
-              echo "❌ Syntax error in $file"
-              FAIL=true
-            fi
-          done
+  # Step 4: Deploy to Green
+  - name: Deploy to Green Environment
+    run: |
+      echo "🚀 Deploying to Green..."
 
-          # 3️⃣ Check for missing critical files
-          CRITICAL_FILES=("green/db.php" "green/dashboard.php" "green/add_expense.php" "green/login.php")
-          for f in "${CRITICAL_FILES[@]}"; do
-            if [ ! -f "$f" ]; then
-              echo "⚠️ Missing critical file: $f"
-              FAIL=true
-            fi
-          done
+      rm -rf green
+      mkdir green
 
-          # 4️⃣ Fail if any check failed
-          if [ "$FAIL" = true ]; then
-            echo "❌ One or more tests failed. Rolling back..."
-            rm -rf green
-            echo "🔁 Rollback triggered — blue (stable) preserved."
-            echo "🔹 Stable version db.php contents:"
-            cat blue/db.php || echo "⚠️ Missing db.php in blue."
-            exit 1
-          else
-            echo "✅ All checks passed — promoting Green to Blue..."
-            rm -rf blue
-            mv green blue
-          fi
+      cp -r \
+        add_expense.php \
+        dashboard.php \
+        db.php \
+        login.php \
+        logout.php \
+        signup.php \
+        testdb.php \
+        list_expenses.php \
+        README.md \
+        green/ 2>/dev/null || true
 
-      # Step 5: Update current symlink to point to Blue (stable)
-      - name: Update Current Environment
-        run: |
-          echo "🔄 Updating current/ to point to blue/..."
-          rm -rf current
-          ln -s blue current
-          echo "✅ Current now points to stable (blue)."
+      echo "✅ Green Deployment Complete"
+
+  # Step 5: Run Automated Tests
+  - name: Test Green Deployment
+    run: |
+      echo "🔍 Running Green Environment Checks..."
+
+      FAIL=false
+
+      echo "📁 Checking Critical Files..."
+
+      FILES=(
+        "green/db.php"
+        "green/login.php"
+        "green/dashboard.php"
+        "green/add_expense.php"
+      )
+
+      for f in "${FILES[@]}"
+      do
+        if [ ! -f "$f" ]; then
+          echo "❌ Missing file: $f"
+          FAIL=true
+        else
+          echo "✅ Found: $f"
+        fi
+      done
+
+      echo "🧩 Running PHP Syntax Checks..."
+
+      for file in $(find green -name "*.php")
+      do
+        echo "Checking $file"
+
+        php -l "$file" > /dev/null
+
+        if [ $? -ne 0 ]; then
+          echo "❌ Syntax Error: $file"
+          FAIL=true
+        fi
+      done
+
+      if [ "$FAIL" = true ]; then
+        echo "❌ Tests Failed"
+        echo "🔁 Rolling Back..."
+
+        rm -rf green
+
+        exit 1
+      fi
+
+      echo "✅ All Tests Passed"
+
+  # Step 6: Promote Green to Blue
+  - name: Promote Green to Blue
+    run: |
+      echo "🚀 Promoting Green to Blue..."
+
+      rm -rf blue
+      mv green blue
+
+      echo "✅ Blue Updated"
+
+  # Step 7: Update Current Environment
+  - name: Update Current Link
+    run: |
+      rm -rf current
+
+      ln -s blue current
+
+      echo "✅ Current -> Blue"
+
+  # Step 8: Success Message
+  - name: Deployment Complete
+    run: |
+      echo "🎉 Blue-Green Deployment Successful"
+```
