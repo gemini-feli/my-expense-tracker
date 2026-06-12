@@ -235,16 +235,3 @@ Add screenshots of:
 - Expense Form
 - Reports Page
 
----
-
-## Author
-
-Felixeena Thomas
-
-Bachelor of Engineering (Information Technology)
-
----
-
-## License
-
-This project is developed for educational and learning purposes.
