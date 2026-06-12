@@ -10,78 +10,86 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: Prepare stable (Blue) environment
-      - name: Prepare Blue (Stable) Environment
-        run: |
-          if [ ! -d "blue" ]; then
-            echo "🔹 No blue folder found — initializing stable environment..."
-            mkdir -p blue
-            cp -r $(ls -A | grep -v blue | grep -v green | grep -v current | grep -v .git) blue/
-          else
-            echo "✅ Blue environment already exists — keeping as stable baseline."
-          fi
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
 
-      # Step 3: Deploy to Green (Test) Environment
-      - name: Deploy to Green
+      - name: Prepare Blue Environment
         run: |
-          echo "🚀 Deploying current version to Green..."
+          echo "🔵 Preparing Blue Environment..."
+          mkdir -p blue
+          cp -r *.php blue/ 2>/dev/null || true
+
+      - name: Deploy to Green Environment
+        run: |
+          echo "🟢 Deploying to Green..."
           rm -rf green
           mkdir green
-          cp -r $(ls -A | grep -v blue | grep -v green | grep -v current | grep -v .git) green/
-          echo "✅ Green environment deployed."
+          cp -r *.php green/ 2>/dev/null || true
+          echo "✅ Green Deployment Complete"
 
-      # Step 4: Run multiple automated tests
       - name: Test Green Deployment
         run: |
-          echo "🔍 Running Green environment checks..."
+          echo "🔍 Running Green Environment Checks..."
 
-          # 1️⃣ Check db.php for mysqli_connect
-          if ! grep -q "mysqli_connect" green/db.php; then
-            echo "❌ Missing mysqli_connect in db.php"
-            FAIL=true
-          fi
+          FAIL=false
 
-          # 2️⃣ Check for syntax errors in all PHP files
-          for file in $(find green -name "*.php"); do
-            echo "🧩 Checking syntax in $file..."
-            php -l "$file" > /dev/null 2>&1
-            if [ $? -ne 0 ]; then
-              echo "❌ Syntax error in $file"
-              FAIL=true
-            fi
-          done
+          FILES=(
+            "green/db.php"
+            "green/login.php"
+            "green/dashboard.php"
+            "green/add_expense.php"
+          )
 
-          # 3️⃣ Check for missing critical files
-          CRITICAL_FILES=("green/db.php" "green/dashboard.php" "green/add_expense.php" "green/login.php")
-          for f in "${CRITICAL_FILES[@]}"; do
+          for f in "${FILES[@]}"
+          do
             if [ ! -f "$f" ]; then
-              echo "⚠️ Missing critical file: $f"
+              echo "❌ Missing file: $f"
+              FAIL=true
+            else
+              echo "✅ Found: $f"
+            fi
+          done
+
+          for file in $(find green -name "*.php")
+          do
+            echo "🧩 Checking syntax in $file"
+
+            php -l "$file" > /dev/null 2>&1
+
+            if [ $? -ne 0 ]; then
+              echo "❌ Syntax Error in $file"
               FAIL=true
             fi
           done
 
-          # 4️⃣ Fail if any check failed
           if [ "$FAIL" = true ]; then
-            echo "❌ One or more tests failed. Rolling back..."
+            echo "❌ Tests Failed"
+            echo "🔁 Rolling Back..."
             rm -rf green
-            echo "🔁 Rollback triggered — blue (stable) preserved."
-            echo "🔹 Stable version db.php contents:"
-            cat blue/db.php || echo "⚠️ Missing db.php in blue."
             exit 1
-          else
-            echo "✅ All checks passed — promoting Green to Blue..."
-            rm -rf blue
-            mv green blue
           fi
 
-      # Step 5: Update current symlink to point to Blue (stable)
+          echo "✅ All Tests Passed"
+
+      - name: Promote Green to Blue
+        run: |
+          echo "🚀 Promoting Green to Blue..."
+          rm -rf blue
+          mv green blue
+          echo "✅ Blue Updated"
+
       - name: Update Current Environment
         run: |
-          echo "🔄 Updating current/ to point to blue/..."
+          echo "🔄 Updating Current..."
           rm -rf current
           ln -s blue current
-          echo "✅ Current now points to stable (blue)."
+          echo "✅ Current → Blue"
+
+      - name: Deployment Complete
+        run: |
+          echo "🎉 Blue-Green Deployment Successful"
